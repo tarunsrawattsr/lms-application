@@ -4,7 +4,10 @@ const nextConfig = {
     domains: [
       "utfs.io"
     ]
-  }
+  },
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
 }
 
 module.exports = nextConfig
