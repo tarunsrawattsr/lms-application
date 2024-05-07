@@ -1,9 +1,8 @@
-import Stripe from "stripe";
 import { currentUser } from "@clerk/nextjs";
 import { NextResponse } from "next/server";
-
 import { db } from "@/lib/db";
-import { stripe } from "@/lib/stripe";
+import { razorpay } from "@/lib/razorpay";
+import Razorpay from "razorpay";
 
 export async function POST(
   req: Request,
@@ -20,16 +19,16 @@ export async function POST(
       where: {
         id: params.courseId,
         isPublished: true,
-      }
+      },
     });
 
     const purchase = await db.purchase.findUnique({
       where: {
         userId_courseId: {
           userId: user.id,
-          courseId: params.courseId
-        }
-      }
+          courseId: params.courseId,
+        },
+      },
     });
 
     if (purchase) {
@@ -40,22 +39,9 @@ export async function POST(
       return new NextResponse("Not found", { status: 404 });
     }
 
-    const line_items: Stripe.Checkout.SessionCreateParams.LineItem[] = [
-      {
-        quantity: 1,
-        price_data: {
-          currency: "USD",
-          product_data: {
-            name: course.title,
-            description: course.description!,
-          },
-          unit_amount: Math.round(course.price! * 100),
-        }
-      }
-    ];
-
-    let stripeCustomer = await db.stripeCustomer.findUnique({
-      where: {
+    // Check if the customer already exists in the Razorpay database
+    let razorpayCustomer = await db.stripeCustomer.findUnique({
+      where:{
         userId: user.id,
       },
       select: {
@@ -63,12 +49,13 @@ export async function POST(
       }
     });
 
-    if (!stripeCustomer) {
-      const customer = await stripe.customers.create({
+    if (!razorpayCustomer) {
+      const customer = await razorpay.customers.create({
         email: user.emailAddresses[0].emailAddress,
       });
 
-      stripeCustomer = await db.stripeCustomer.create({
+      // Save the customer ID to the database
+      razorpayCustomer = await db.stripeCustomer.create({
         data: {
           userId: user.id,
           stripeCustomerId: customer.id,
@@ -76,21 +63,24 @@ export async function POST(
       });
     }
 
-    const session = await stripe.checkout.sessions.create({
-      customer: stripeCustomer.stripeCustomerId,
-      line_items,
-      mode: 'payment',
-      success_url: `${process.env.NEXT_PUBLIC_APP_URL}/courses/${course.id}?success=1`,
-      cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/courses/${course.id}?canceled=1`,
-      metadata: {
-        courseId: course.id,
-        userId: user.id,
-      }
+    // Create a new order
+    const order = await razorpay.orders.create({
+      amount: Math.round(course.price! * 100),
+      currency: "INR",
+      receipt: `${user.id}`,
+      payment_capture: true,
     });
 
-    return NextResponse.json({ url: session.url });
+    // Return the URL for the payment page
+    return NextResponse.json({
+      orderId: order.id,
+      amount: order.amount,
+      currency: order.currency,
+      customerId: user.id
+    });
+    
   } catch (error) {
     console.log("[COURSE_ID_CHECKOUT]", error);
-    return new NextResponse("Internal Error", { status: 500 })
+    return new NextResponse("Internal Error", { status: 500 });
   }
 }
