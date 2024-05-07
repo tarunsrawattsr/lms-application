@@ -4,9 +4,11 @@ import { NextResponse } from "next/server";
 
 import { db } from "@/lib/db";
 
-const { Video } = new Mux(
-  process.env.MUX_TOKEN_ID!,
-  process.env.MUX_TOKEN_SECRET!,
+const {video} = new Mux(
+  {
+    tokenId: 'f6e7f71d-1c73-446f-9c8f-5b512af6a4c8',
+    tokenSecret: 'sg/JgiKtt2gJpDFncam6SYlBoyM1H+bL96S2bDT1G3S1s8KNuFyUmp7P7CpNDf5htOz8ny+33UC'
+  }
 );
 
 export async function DELETE(
@@ -40,7 +42,7 @@ export async function DELETE(
 
     for (const chapter of course.chapters) {
       if (chapter.muxData?.assetId) {
-        await Video.Assets.del(chapter.muxData.assetId);
+        await video.assets.delete(chapter.muxData.assetId);
       }
     }
 
