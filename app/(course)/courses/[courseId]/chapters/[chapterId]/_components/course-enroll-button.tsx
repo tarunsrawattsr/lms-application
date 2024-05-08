@@ -12,7 +12,6 @@ import toast from "react-hot-toast";
 import { Button } from "@/components/ui/button";
 import { formatPrice } from "@/lib/format";
 import { db } from "@/lib/db";
-import crypto from 'crypto';
 
 interface CourseEnrollButtonProps {
   price: number;
@@ -55,7 +54,19 @@ export const CourseEnrollButton: React.FC<CourseEnrollButtonProps> = ({
                 razorpayOrderId: response.razorpay_order_id,
                 razorpaySignature: response.razorpay_signature,
             };
-            toast.success("Purchased course successfully");
+            try {
+              const paySuccess = await axios.post(`/api/courses/${courseId}/purchased`);
+              if (paySuccess.status === 200) {
+                toast.success("Payment successful");
+                setTimeout(() => {
+                  window.location.reload();
+                }, 1000);
+              } else {
+                toast.error("Payment failed");
+              }
+            } catch (error) {
+              console.error(error);
+            }
         },
         prefill: {
             name: "Descite",

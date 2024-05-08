@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { razorpay } from "@/lib/razorpay";
 import Razorpay from "razorpay";
+import toast from "react-hot-toast";
+import { connect } from "http2";
 
 export async function POST(
   req: Request,
@@ -39,45 +41,17 @@ export async function POST(
       return new NextResponse("Not found", { status: 404 });
     }
 
-    // Check if the customer already exists in the Razorpay database
-    let razorpayCustomer = await db.stripeCustomer.findUnique({
-      where:{
-        userId: user.id,
-      },
-      select: {
-        stripeCustomerId: true,
-      }
-    });
-
-    if (!razorpayCustomer) {
-      const customer = await razorpay.customers.create({
-        email: user.emailAddresses[0].emailAddress,
-      });
-
-      // Save the customer ID to the database
-      razorpayCustomer = await db.stripeCustomer.create({
+    const updatePurchase = await db.purchase.create({
         data: {
-          userId: user.id,
-          stripeCustomerId: customer.id,
-        }
-      });
-    }
-    
-    // Create a new order
-    const order = await razorpay.orders.create({
-      amount: Math.round(course.price! * 100),
-      currency: "INR",
-      receipt: `${user.id}`,
-      payment_capture: true,
+            userId: user.id,
+            course:{
+                connect: {id : course.id}
+            }
+        } as any,
     });
     
-    
-    // Return the URL for the payment page
     return NextResponse.json({
-      orderId: order.id,
-      amount: order.amount,
-      currency: order.currency,
-      customerId: user.id,
+        updatePurchase
     });
     
   } catch (error) {
