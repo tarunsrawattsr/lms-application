@@ -77,7 +77,6 @@ export async function POST(
       orderId: order.id,
       amount: order.amount,
       currency: order.currency,
-      customerId: user.id,
     });
     
   } catch (error) {
